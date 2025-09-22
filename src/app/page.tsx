@@ -130,7 +130,7 @@ export default function Home() {
                     </div>
                     <div className="text-white text-sm font-medium">AI Video Generated</div>
                   </div>
-                  <div className="text-white/80 text-xs mb-2">"Hi Sarah! We noticed you loved these wireless headphones..."</div>
+                  <div className="text-white/80 text-xs mb-2">Hi Sarah! We noticed you loved these wireless headphones...</div>
                   <div className="flex items-center justify-between">
                     <div className="w-8 h-8 bg-gradient-to-r from-pink-400 to-orange-400 rounded"></div>
                     <div className="text-white/60 text-xs">Sent 3 min ago</div>
@@ -373,7 +373,7 @@ export default function Home() {
                 </div>
               </div>
               <p className="text-gray-600 text-lg leading-relaxed mb-4">
-                "Retloop recovered $12,000 in the first month. The AI videos are so realistic, customers think we personally recorded them. 340% improvement over our old email system."
+                Retloop recovered $12,000 in the first month. The AI videos are incredibly realistic and customers love the personal touch. 340% improvement over our old system.
               </p>
               <div className="flex text-yellow-400">
                 {[...Array(5)].map((_, i) => (
@@ -393,7 +393,7 @@ export default function Home() {
                 </div>
               </div>
               <p className="text-gray-600 text-lg leading-relaxed mb-4">
-                "Setup took 4 minutes. Within 24 hours we were recovering carts we never would have gotten back. The ROI is incredible - pays for itself in the first week."
+                Setup took 4 minutes. Within 24 hours we were recovering carts we never would have gotten back. The ROI is incredible and pays for itself quickly.
               </p>
               <div className="flex text-yellow-400">
                 {[...Array(5)].map((_, i) => (
@@ -413,7 +413,7 @@ export default function Home() {
                 </div>
               </div>
               <p className="text-gray-600 text-lg leading-relaxed mb-4">
-                "The personalization is mind-blowing. Customers email us asking how we made such personalized videos. It's completely automated but feels human. Game changer."
+                The personalization is incredible. Customers email us asking how we made such personalized videos. It feels completely human but is fully automated.
               </p>
               <div className="flex text-yellow-400">
                 {[...Array(5)].map((_, i) => (
