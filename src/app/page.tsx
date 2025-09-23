@@ -2,6 +2,7 @@
 
 import { ArrowRight, CheckCircle, Zap, Users, BarChart3, Play, Star, TrendingUp, ShoppingCart, Clock, Shield, X } from 'lucide-react'
 import { useState } from 'react'
+import { event } from '@/lib/gtag'
 
 export default function Home() {
   const [showEmailModal, setShowEmailModal] = useState(false)
@@ -40,6 +41,13 @@ export default function Home() {
       if (response.ok) {
         setIsSuccess(true)
         setEmail('')
+        
+        // Track email signup in Google Analytics
+        event('email_signup', {
+          source: 'landing_page_trial',
+          email: email
+        })
+        
         // Auto-close modal after 3 seconds
         setTimeout(() => {
           setShowEmailModal(false)
