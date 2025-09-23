@@ -6,12 +6,12 @@ export const pageview = (url: URL) => {
   })
 }
 
-export const event = (action: string, parameters: any) => {
+export const event = (action: string, parameters: Record<string, string | number>) => {
   window.gtag('event', action, parameters)
 }
 
 declare global {
   interface Window {
-    gtag: (...args: any[]) => void
+    gtag: (command: string, ...args: unknown[]) => void
   }
 }

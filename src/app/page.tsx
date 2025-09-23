@@ -56,7 +56,7 @@ export default function Home() {
       } else {
         throw new Error('Failed to subscribe')
       }
-    } catch (err) {
+    } catch  {
       setError('Something went wrong. Please try again.')
     } finally {
       setIsLoading(false)
