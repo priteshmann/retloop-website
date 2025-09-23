@@ -1,8 +1,224 @@
-import { ArrowRight, CheckCircle, Zap, Users, BarChart3, Play, Star, TrendingUp, ShoppingCart, Clock, Shield } from 'lucide-react'
+'use client'
+
+import { ArrowRight, CheckCircle, Zap, Users, BarChart3, Play, Star, TrendingUp, ShoppingCart, Clock, Shield, X } from 'lucide-react'
+import { useState } from 'react'
 
 export default function Home() {
+  const [showEmailModal, setShowEmailModal] = useState(false)
+  const [email, setEmail] = useState('')
+  const [isLoading, setIsLoading] = useState(false)
+  const [isSuccess, setIsSuccess] = useState(false)
+  const [error, setError] = useState('')
+
+  const handleEmailSubmit = async (e: React.FormEvent) => {
+    e.preventDefault()
+    setIsLoading(true)
+    setError('')
+
+    // Basic email validation
+    const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/
+    if (!emailRegex.test(email)) {
+      setError('Please enter a valid email address')
+      setIsLoading(false)
+      return
+    }
+
+    try {
+      // Store email in Supabase (you'll need to replace with your actual Supabase endpoint)
+      const response = await fetch('/api/subscribe', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({ 
+          email,
+          source: 'landing_page_trial',
+          timestamp: new Date().toISOString()
+        }),
+      })
+
+      if (response.ok) {
+        setIsSuccess(true)
+        setEmail('')
+        // Auto-close modal after 3 seconds
+        setTimeout(() => {
+          setShowEmailModal(false)
+          setIsSuccess(false)
+        }, 3000)
+      } else {
+        throw new Error('Failed to subscribe')
+      }
+    } catch (err) {
+      setError('Something went wrong. Please try again.')
+    } finally {
+      setIsLoading(false)
+    }
+  }
+
+  const openEmailModal = () => {
+    setShowEmailModal(true)
+    setEmail('')
+    setError('')
+    setIsSuccess(false)
+  }
+
   return (
     <div className="min-h-screen bg-gradient-to-br from-purple-600 via-blue-500 to-orange-400">
+      {/* Email Capture Modal */}
+      {showEmailModal && (
+        <div className="fixed inset-0 bg-black/50 backdrop-blur-sm flex items-center justify-center z-50 p-4 animate-in fade-in duration-300">
+          <div 
+            className="bg-white rounded-3xl p-8 max-w-md w-full relative shadow-2xl animate-in zoom-in-0 duration-500 ease-out"
+            style={{
+              background: 'linear-gradient(135deg, #ffffff 0%, #f8fafc 100%)',
+              boxShadow: '0 25px 50px -12px rgba(0, 0, 0, 0.25), 0 0 0 1px rgba(255, 255, 255, 0.05)',
+              animation: 'modal-scale 0.5s cubic-bezier(0.34, 1.56, 0.64, 1)'
+            }}
+          >            
+            <button 
+              onClick={() => setShowEmailModal(false)}
+              className="absolute top-4 right-4 text-gray-400 hover:text-gray-600 p-2 rounded-full hover:bg-gray-100 transition-all duration-200 hover:scale-110"
+            >
+              <X className="w-5 h-5" />
+            </button>
+
+            {!isSuccess ? (
+              <div className="animate-in slide-in-from-bottom-8 duration-700 delay-200">
+                <div className="text-center mb-8">
+                  {/* Animated icon */}
+                  <div className="relative mx-auto mb-6">
+                    <div className="w-20 h-20 bg-gradient-to-br from-purple-500 via-blue-500 to-orange-500 rounded-3xl flex items-center justify-center mx-auto relative overflow-hidden">
+                      <div className="absolute inset-0 bg-gradient-to-br from-white/20 to-transparent"></div>
+                      <ShoppingCart className="w-10 h-10 text-white relative z-10 animate-bounce" />
+                      {/* Icon sparkles only */}
+                      <div className="absolute top-2 right-3 w-2 h-2 bg-white rounded-full animate-ping delay-300"></div>
+                      <div className="absolute bottom-3 left-2 w-1.5 h-1.5 bg-white/80 rounded-full animate-ping delay-700"></div>
+                    </div>
+                    {/* Glow effect */}
+                    <div className="absolute inset-0 w-20 h-20 bg-gradient-to-br from-purple-500 to-blue-500 rounded-3xl mx-auto blur-xl opacity-30 animate-pulse"></div>
+                  </div>
+                  
+                  <h3 className="text-3xl font-bold bg-gradient-to-r from-gray-900 via-purple-800 to-blue-800 bg-clip-text text-transparent mb-3">
+                    Start Your Free Trial
+                  </h3>
+                  <p className="text-gray-600 text-lg">Enter your email to begin your 14-day free trial of Retloop</p>
+                </div>
+
+                <form onSubmit={handleEmailSubmit} className="space-y-6">
+                  <div className="relative">
+                    <label htmlFor="email" className="block text-sm font-semibold text-gray-700 mb-3">
+                      Email Address
+                    </label>
+                    <div className="relative group">
+                      <input
+                        type="email"
+                        id="email"
+                        value={email}
+                        onChange={(e) => setEmail(e.target.value)}
+                        placeholder="you@yourstore.com"
+                        className="w-full px-5 py-4 border-2 border-gray-200 rounded-xl focus:ring-4 focus:ring-purple-500/20 focus:border-purple-500 transition-all duration-300 text-lg group-hover:border-purple-300 bg-gray-50/50 focus:bg-white"
+                        required
+                      />
+                      <div className="absolute inset-0 rounded-xl bg-gradient-to-r from-purple-500 to-blue-500 opacity-0 group-focus-within:opacity-10 transition-opacity duration-300 pointer-events-none"></div>
+                    </div>
+                  </div>
+
+                  {error && (
+                    <div className="text-red-600 text-sm bg-red-50 p-3 rounded-lg border border-red-200 animate-in slide-in-from-top-2 duration-300">
+                      {error}
+                    </div>
+                  )}
+
+                  <button
+                    type="submit"
+                    disabled={isLoading}
+                    className="w-full bg-gradient-to-r from-purple-600 via-blue-600 to-purple-600 text-white py-4 px-6 rounded-xl font-bold text-lg hover:shadow-lg hover:shadow-purple-500/25 transition-all duration-300 disabled:opacity-50 disabled:cursor-not-allowed transform hover:scale-[1.02] active:scale-[0.98] relative overflow-hidden group"
+                    style={{
+                      backgroundSize: '200% 200%',
+                      animation: isLoading ? 'none' : 'gradient-x 3s ease infinite'
+                    }}
+                  >
+                    <span className="relative z-10 flex items-center justify-center gap-2">
+                      {isLoading ? (
+                        <>
+                          <div className="w-5 h-5 border-2 border-white/30 border-t-white rounded-full animate-spin"></div>
+                          Starting Trial...
+                        </>
+                      ) : (
+                        <>
+                          Start 14-Day Free Trial
+                          <ArrowRight className="w-5 h-5 group-hover:translate-x-1 transition-transform duration-200" />
+                        </>
+                      )}
+                    </span>
+                    {/* Shimmer effect */}
+                    <div className="absolute inset-0 -skew-x-12 -translate-x-full group-hover:animate-[shimmer_0.8s_ease-out] bg-gradient-to-r from-transparent via-white/20 to-transparent"></div>
+                  </button>
+
+                  <div className="text-center">
+                    <div className="flex items-center justify-center space-x-6 text-sm text-gray-500">
+                      <div className="flex items-center animate-in slide-in-from-left duration-500 delay-300">
+                        <CheckCircle className="w-4 h-4 mr-2 text-green-500" />
+                        No credit card required
+                      </div>
+                      <div className="flex items-center animate-in slide-in-from-right duration-500 delay-500">
+                        <CheckCircle className="w-4 h-4 mr-2 text-green-500" />
+                        Cancel anytime
+                      </div>
+                    </div>
+                  </div>
+                </form>
+              </div>
+            ) : (
+              <div className="text-center animate-in zoom-in-50 duration-500">
+                {/* Success state with celebration animation */}
+                <div className="relative mx-auto mb-6">
+                  <div className="w-24 h-24 bg-gradient-to-br from-green-400 to-emerald-500 rounded-full flex items-center justify-center mx-auto relative">
+                    <CheckCircle className="w-12 h-12 text-white animate-bounce" />
+                    {/* Celebration particles */}
+                    <div className="absolute -top-2 -right-2 w-3 h-3 bg-yellow-400 rounded-full animate-ping"></div>
+                    <div className="absolute -bottom-1 -left-2 w-2 h-2 bg-blue-400 rounded-full animate-ping delay-300"></div>
+                    <div className="absolute top-0 -left-3 w-2.5 h-2.5 bg-purple-400 rounded-full animate-ping delay-500"></div>
+                    <div className="absolute -bottom-2 right-0 w-2 h-2 bg-pink-400 rounded-full animate-ping delay-700"></div>
+                  </div>
+                  <div className="absolute inset-0 w-24 h-24 bg-green-400 rounded-full mx-auto blur-xl opacity-40 animate-pulse"></div>
+                </div>
+                
+                <h3 className="text-3xl font-bold bg-gradient-to-r from-green-600 to-emerald-600 bg-clip-text text-transparent mb-3">
+                  Welcome to Retloop!
+                </h3>
+                <p className="text-gray-600 text-lg mb-4 animate-in slide-in-from-bottom duration-500 delay-200">
+                  Check your email for setup instructions and your free trial access.
+                </p>
+                <p className="text-sm text-gray-500 animate-pulse">
+                  This window will close automatically...
+                </p>
+              </div>
+            )}
+          </div>
+        </div>
+      )}
+
+      <style jsx>{`
+        @keyframes modal-scale {
+          0% { 
+            transform: scale(0.8);
+            opacity: 0;
+          }
+          100% { 
+            transform: scale(1);
+            opacity: 1;
+          }
+        }
+        @keyframes gradient-x {
+          0%, 100% { background-position: 0% 50%; }
+          50% { background-position: 100% 50%; }
+        }
+        @keyframes shimmer {
+          100% { transform: translateX(100%) skewX(-12deg); }
+        }
+      `}</style>
+
       {/* Navigation */}
       <nav className="relative z-10">
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
@@ -22,7 +238,10 @@ export default function Home() {
               <button className="text-white/90 hover:text-white text-sm font-medium">
                 Sign in →
               </button>
-              <button className="bg-white/20 backdrop-blur-sm border border-white/30 text-white px-4 py-2 rounded-lg text-sm font-medium hover:bg-white/30 transition-all">
+              <button 
+                onClick={openEmailModal}
+                className="bg-white/20 backdrop-blur-sm border border-white/30 text-white px-4 py-2 rounded-lg text-sm font-medium hover:bg-white/30 transition-all"
+              >
                 Start Free Trial →
               </button>
             </div>
@@ -55,7 +274,10 @@ export default function Home() {
               </p>
               
               <div className="flex flex-col sm:flex-row gap-4 mb-12">
-                <button className="bg-white text-gray-900 px-8 py-4 rounded-lg font-semibold hover:bg-gray-100 transition-colors flex items-center justify-center gap-2 text-lg">
+                <button 
+                  onClick={openEmailModal}
+                  className="bg-white text-gray-900 px-8 py-4 rounded-lg font-semibold hover:bg-gray-100 transition-colors flex items-center justify-center gap-2 text-lg"
+                >
                   Start 14-Day Free Trial
                   <ArrowRight className="w-5 h-5" />
                 </button>
@@ -278,7 +500,10 @@ export default function Home() {
                 </li>
               </ul>
               
-              <button className="w-full bg-white text-gray-900 py-3 px-6 rounded-lg font-semibold hover:bg-gray-100 transition-colors">
+              <button 
+                onClick={openEmailModal}
+                className="w-full bg-white text-gray-900 py-3 px-6 rounded-lg font-semibold hover:bg-gray-100 transition-colors"
+              >
                 Start 14-Day Free Trial
               </button>
             </div>
@@ -323,7 +548,10 @@ export default function Home() {
                 </li>
               </ul>
               
-              <button className="w-full bg-gradient-to-r from-orange-400 to-purple-400 text-white py-3 px-6 rounded-lg font-semibold hover:from-orange-500 hover:to-purple-500 transition-all">
+              <button 
+                onClick={openEmailModal}
+                className="w-full bg-gradient-to-r from-orange-400 to-purple-400 text-white py-3 px-6 rounded-lg font-semibold hover:from-orange-500 hover:to-purple-500 transition-all"
+              >
                 Start 14-Day Free Trial
               </button>
             </div>
@@ -435,7 +663,10 @@ export default function Home() {
             Join 1,000+ Shopify stores using Retloop to turn abandoned carts into revenue. Start your free trial today.
           </p>
           <div className="flex flex-col sm:flex-row gap-4 justify-center">
-            <button className="bg-white text-gray-900 px-8 py-4 rounded-lg font-semibold hover:bg-gray-100 transition-colors text-lg">
+            <button 
+              onClick={openEmailModal}
+              className="bg-white text-gray-900 px-8 py-4 rounded-lg font-semibold hover:bg-gray-100 transition-colors text-lg"
+            >
               Start 14-Day Free Trial
             </button>
             <button className="border-2 border-white text-white px-8 py-4 rounded-lg font-semibold hover:bg-white/10 transition-colors text-lg">
@@ -456,7 +687,10 @@ export default function Home() {
                 AI-powered cart recovery for Shopify stores. Turn abandoned carts into customers with personalized videos and automated email sequences.
               </p>
               <div className="flex space-x-4">
-                <button className="bg-white text-gray-900 px-6 py-3 rounded-lg font-semibold hover:bg-gray-100 transition-colors">
+                <button 
+                  onClick={openEmailModal}
+                  className="bg-white text-gray-900 px-6 py-3 rounded-lg font-semibold hover:bg-gray-100 transition-colors"
+                >
                   Start Free Trial
                 </button>
               </div>
