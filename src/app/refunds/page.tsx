@@ -1,4 +1,6 @@
 // src/app/refunds/page.tsx
+import Link from 'next/link';
+
 export default function RefundPolicy() {
     return (
       <div className="min-h-screen bg-gray-50 py-12 px-4">
@@ -52,7 +54,7 @@ export default function RefundPolicy() {
               You can cancel your subscription at any time by:
             </p>
             <ul className="list-disc pl-6 text-gray-700 mb-6">
-              <li>Logging into your account dashboard and clicking "Cancel Subscription"</li>
+              <li>Logging into your account dashboard and clicking &quot;Cancel Subscription&quot;</li>
               <li>Emailing our support team at support@retloop.com</li>
               <li>Using the cancellation link in your billing receipt</li>
             </ul>
@@ -81,12 +83,12 @@ export default function RefundPolicy() {
           </div>
   
           <div className="text-center mt-8">
-            <a 
+            <Link 
               href="/"
               className="bg-purple-600 text-white px-6 py-3 rounded-lg font-semibold hover:bg-purple-700 transition-colors"
             >
               Back to Home
-            </a>
+            </Link>
           </div>
         </div>
       </div>

@@ -1,4 +1,6 @@
 // src/app/terms/page.tsx
+import Link from 'next/link';
+
 export default function TermsOfService() {
     return (
       <div className="min-h-screen bg-gray-50 py-12 px-4">
@@ -20,7 +22,7 @@ export default function TermsOfService() {
           <div className="prose max-w-none">
             <h2 className="text-2xl font-semibold text-gray-900 mb-4">1. Acceptance of Terms</h2>
             <p className="text-gray-700 mb-6">
-              By accessing and using Retloop ("the Service"), you accept and agree to be bound by the terms and provision of this agreement.
+              By accessing and using Retloop (&quot;the Service&quot;), you accept and agree to be bound by the terms and provision of this agreement.
             </p>
   
             <h2 className="text-2xl font-semibold text-gray-900 mb-4">2. Description of Service</h2>
@@ -64,12 +66,12 @@ export default function TermsOfService() {
           </div>
   
           <div className="text-center mt-8">
-            <a 
+            <Link 
               href="/"
               className="bg-purple-600 text-white px-6 py-3 rounded-lg font-semibold hover:bg-purple-700 transition-colors"
             >
               Back to Home
-            </a>
+            </Link>
           </div>
         </div>
       </div>

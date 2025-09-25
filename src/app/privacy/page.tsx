@@ -1,4 +1,6 @@
 // src/app/privacy/page.tsx
+import Link from 'next/link';
+
 export default function PrivacyPolicy() {
     return (
       <div className="min-h-screen bg-gray-50 py-12 px-4">
@@ -81,12 +83,12 @@ export default function PrivacyPolicy() {
           </div>
   
           <div className="text-center mt-8">
-            <a 
+            <Link 
               href="/"
               className="bg-purple-600 text-white px-6 py-3 rounded-lg font-semibold hover:bg-purple-700 transition-colors"
             >
               Back to Home
-            </a>
+            </Link>
           </div>
         </div>
       </div>
