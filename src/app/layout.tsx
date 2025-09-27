@@ -1,5 +1,8 @@
+'use client';
+
 import type { Metadata } from "next";
 import { Geist, Geist_Mono } from "next/font/google";
+import { SessionProvider } from 'next-auth/react';
 import Script from "next/script";
 import "./globals.css";
 
@@ -12,11 +15,6 @@ const geistMono = Geist_Mono({
   variable: "--font-geist-mono",
   subsets: ["latin"],
 });
-
-export const metadata: Metadata = {
-  title: "Retloop - AI Cart Recovery for Shopify",
-  description: "Turn abandoned carts into customers with AI-powered personalized videos. 3x higher recovery rates than generic emails.",
-};
 
 const GA_TRACKING_ID = 'G-RN0WD74NFZ'
 
@@ -44,7 +42,9 @@ export default function RootLayout({
       <body
         className={`${geistSans.variable} ${geistMono.variable} antialiased`}
       >
-        {children}
+        <SessionProvider>
+          {children}
+        </SessionProvider>
       </body>
     </html>
   );

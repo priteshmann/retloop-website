@@ -1,429 +1,560 @@
 'use client';
 
-import React, { useState, useEffect } from 'react';
-import { supabase } from '../lib/supabase';
+import React, { useState } from 'react';
+import { signIn } from 'next-auth/react';
+import { useRouter } from 'next/navigation';
 
-// Simplified Free Trial Signup Modal (No Plan Selection)
-const SignupModal = ({ 
-  isOpen, 
-  onClose 
-}: { 
-  isOpen: boolean, 
-  onClose: () => void
-}) => {
-  const [email, setEmail] = useState('');
+interface SignupModalProps {
+  isOpen: boolean;
+  onClose: () => void;
+}
+
+export function SignupModal({ isOpen, onClose }: SignupModalProps) {
+  const [formData, setFormData] = useState({
+    firstName: '',
+    lastName: '',
+    email: '',
+    password: '',
+    confirmPassword: ''
+  });
+  const [errors, setErrors] = useState<{[key: string]: string}>({});
   const [isLoading, setIsLoading] = useState(false);
-  const [message, setMessage] = useState('');
-  const [modalScale, setModalScale] = useState(false);
-
-  // Enhanced animation effect
-  useEffect(() => {
-    if (isOpen) {
-      document.body.style.overflow = 'hidden';
-      setEmail('');
-      setMessage('');
-      
-      // Trigger animation after modal is rendered
-      setTimeout(() => setModalScale(true), 10);
-    } else {
-      document.body.style.overflow = 'unset';
-      setModalScale(false);
-    }
-
-    return () => {
-      document.body.style.overflow = 'unset';
-    };
-  }, [isOpen]);
-
-  const handleSubmit = async (e: React.FormEvent) => {
-    e.preventDefault();
-    setIsLoading(true);
-    setMessage('');
-
-    if (!email) {
-      setMessage('Please enter your email address');
-      setIsLoading(false);
-      return;
-    }
-
-    try {
-      // Store email with trial info
-      const trialStartDate = new Date().toISOString();
-      const trialEndDate = new Date(Date.now() + 14 * 24 * 60 * 60 * 1000).toISOString(); // 14 days from now
-      
-      const { error } = await supabase
-        .from('email_signups')
-        .insert([
-          { 
-            email, 
-            source: 'landing_page_trial',
-            plan_selected: 'trial',
-            trial_start_date: trialStartDate,
-            trial_end_date: trialEndDate
-            // Removed videos_remaining since it's unlimited now
-          }
-        ]);
-
-      if (error) throw error;
-
-      // Track with Google Analytics
-      if (typeof window !== 'undefined' && (window as any).gtag) {
-        (window as any).gtag('event', 'trial_signup', {
-          'event_category': 'engagement',
-          'event_label': 'unlimited_trial',
-          'trial_duration': 14
-        });
-      }
-
-      setMessage('Success! Check your email to get started with your 14-day free trial.');
-      
-    } catch (error) {
-      console.error('Error:', error);
-      setMessage('Something went wrong. Please try again.');
-    } finally {
-      setIsLoading(false);
-    }
-  };
-
-  const handleGoogleSignup = () => {
-    console.log('Google signup for free trial');
-    // TODO: Implement Google OAuth for trial
-  };
-
-  const handleAppleSignup = () => {
-    console.log('Apple signup for free trial');
-    // TODO: Implement Apple OAuth for trial
-  };
+  const router = useRouter();
 
   if (!isOpen) return null;
 
+  const validateForm = () => {
+    const newErrors: {[key: string]: string} = {};
+
+    if (!formData.firstName.trim()) {
+      newErrors.firstName = 'First name is required';
+    }
+    if (!formData.lastName.trim()) {
+      newErrors.lastName = 'Last name is required';
+    }
+    if (!formData.email.trim()) {
+      newErrors.email = 'Email is required';
+    } else if (!/\S+@\S+\.\S+/.test(formData.email)) {
+      newErrors.email = 'Email is invalid';
+    }
+    if (!formData.password) {
+      newErrors.password = 'Password is required';
+    } else if (formData.password.length < 8) {
+      newErrors.password = 'Password must be at least 8 characters';
+    }
+    if (formData.password !== formData.confirmPassword) {
+      newErrors.confirmPassword = 'Passwords do not match';
+    }
+
+    setErrors(newErrors);
+    return Object.keys(newErrors).length === 0;
+  };
+
+  const handleSubmit = async (e: React.FormEvent) => {
+    e.preventDefault();
+    console.log('=== FORM SUBMIT STARTED ===');
+    
+    if (!validateForm()) {
+      console.log('Validation failed, stopping submission');
+      return;
+    }
+
+    console.log('Form data before submission:', {
+      firstName: formData.firstName,
+      lastName: formData.lastName,
+      email: formData.email,
+      passwordLength: formData.password.length
+    });
+
+    setIsLoading(true);
+
+    try {
+      const requestBody = {
+        name: `${formData.firstName} ${formData.lastName}`,
+        email: formData.email,
+        password: formData.password
+      };
+      
+      console.log('Request body to send:', requestBody);
+      
+      // Create the account
+      console.log('Making fetch request to /api/auth/signup...');
+      const response = await fetch('/api/signup', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify(requestBody),
+      });
+
+      console.log('Response status:', response.status);
+      console.log('Response ok:', response.ok);
+      
+      const data = await response.json();
+      console.log('Response data:', data);
+
+      if (response.ok) {
+        console.log('Account creation successful, attempting sign-in...');
+        
+        // Automatically sign in the user
+        const signInResult = await signIn('credentials', {
+          email: formData.email,
+          password: formData.password,
+          redirect: false,
+        });
+
+        console.log('Sign-in result:', signInResult);
+
+        if (signInResult?.error) {
+          console.log('Sign-in failed:', signInResult.error);
+          setErrors({ general: 'Account created but sign-in failed. Please try signing in manually.' });
+        } else {
+          console.log('Sign-in successful, redirecting to dashboard...');
+          
+          // Track successful signup
+          if (typeof window !== 'undefined' && (window as any).gtag) {
+            (window as any).gtag('event', 'sign_up', {
+              event_category: 'engagement',
+              method: 'email'
+            });
+          }
+          
+          // Redirect to dashboard
+          router.push('/dashboard');
+          onClose();
+        }
+      } else {
+        console.log('Account creation failed:', data);
+        setErrors({ general: data.error || 'Failed to create account' });
+      }
+    } catch (error) {
+      console.error('Fetch error:', error);
+      setErrors({ general: 'Something went wrong. Please try again.' });
+    }
+
+    setIsLoading(false);
+    console.log('=== FORM SUBMIT ENDED ===');
+  };
+
+  const handleGoogleSignup = () => {
+    signIn('google', { callbackUrl: '/dashboard' });
+  };
+
+  const handleInputChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const { name, value } = e.target;
+    setFormData(prev => ({ ...prev, [name]: value }));
+    
+    // Clear error when user starts typing
+    if (errors[name]) {
+      setErrors(prev => ({ ...prev, [name]: '' }));
+    }
+  };
+
   return (
-    <div className="fixed inset-0 bg-white bg-opacity-95 flex items-center justify-center z-50 p-4">
-      <div 
-        className={`bg-white rounded-lg shadow-2xl w-full max-w-md mx-auto transform transition-all duration-500 ease-out ${
-          modalScale ? 'scale-100 opacity-100' : 'scale-75 opacity-0'
-        }`}
-        style={{ 
-          border: '1px solid #e1e5e9',
-          maxHeight: '90vh',
-          overflowY: 'auto',
-          transformOrigin: 'center center'
-        }}
-      >
-        {/* Header with Retloop logo */}
-        <div className="text-center pt-8 pb-4 px-8">
-          <div className="flex justify-center mb-6">
-            {/* Retloop logo - using colorful squares like Slack */}
-            <div className="flex space-x-1">
-              <div className="w-3 h-3 bg-purple-500 rounded-sm"></div>
-              <div className="w-3 h-3 bg-blue-500 rounded-sm"></div>
-              <div className="w-3 h-3 bg-green-500 rounded-sm"></div>
-              <div className="w-3 h-3 bg-red-500 rounded-sm"></div>
-            </div>
-            <span className="ml-3 text-xl font-bold text-gray-900">retloop</span>
-          </div>
+    <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center p-4 z-50">
+      <div className="bg-white rounded-lg shadow-xl w-full max-w-md transform transition-all duration-200 scale-95 animate-[scale-in_0.2s_ease-out_forwards]">
+        <style jsx>{`
+          @keyframes scale-in {
+            from {
+              transform: scale(0.75);
+              opacity: 0;
+            }
+            to {
+              transform: scale(1);
+              opacity: 1;
+            }
+          }
+        `}</style>
+        
+        {/* Header */}
+        <div className="flex justify-between items-center p-6 border-b">
+          <h2 className="text-2xl font-bold text-gray-900">Start your 14-day free trial</h2>
+          <button
+            onClick={onClose}
+            className="text-gray-400 hover:text-gray-600 text-2xl font-light"
+          >
+            ×
+          </button>
         </div>
 
-        {/* Close button */}
-        <button
-          onClick={onClose}
-          className="absolute top-4 right-4 text-gray-400 hover:text-gray-600 text-2xl font-light"
-        >
-          ×
-        </button>
-
-        {/* Main content */}
-        <div className="px-8 pb-8">
-          <h1 className="text-3xl font-bold text-gray-900 text-center mb-2">
-            Start your 14-day free trial
-          </h1>
-          
-          <p className="text-gray-600 text-center mb-8">
+        {/* Content */}
+        <div className="p-6">
+          <p className="text-gray-600 text-center mb-6">
             We suggest using the email address that you use at work.
           </p>
 
-          {/* Email form */}
+          {/* Google Signup Button */}
+          <button
+            onClick={handleGoogleSignup}
+            className="w-full flex justify-center items-center px-4 py-3 border border-gray-300 rounded-lg shadow-sm text-sm font-medium text-gray-700 bg-white hover:bg-gray-50 mb-4"
+          >
+            <svg className="w-5 h-5 mr-2" viewBox="0 0 24 24">
+              <path fill="#4285F4" d="M22.56 12.25c0-.78-.07-1.53-.2-2.25H12v4.26h5.92c-.26 1.37-1.04 2.53-2.21 3.31v2.77h3.57c2.08-1.92 3.28-4.74 3.28-8.09z"/>
+              <path fill="#34A853" d="M12 23c2.97 0 5.46-.98 7.28-2.66l-3.57-2.77c-.98.66-2.23 1.06-3.71 1.06-2.86 0-5.29-1.93-6.16-4.53H2.18v2.84C3.99 20.53 7.7 23 12 23z"/>
+              <path fill="#FBBC05" d="M5.84 14.09c-.22-.66-.35-1.36-.35-2.09s.13-1.43.35-2.09V7.07H2.18C1.43 8.55 1 10.22 1 12s.43 3.45 1.18 4.93l2.85-2.22.81-.62z"/>
+              <path fill="#EA4335" d="M12 5.38c1.62 0 3.06.56 4.21 1.64l3.15-3.15C17.45 2.09 14.97 1 12 1 7.7 1 3.99 3.47 2.18 7.07l3.66 2.84c.87-2.6 3.3-4.53 6.16-4.53z"/>
+            </svg>
+            Continue with Google
+          </button>
 
-          {/* Email form */}
+          <div className="relative mb-4">
+            <div className="absolute inset-0 flex items-center">
+              <div className="w-full border-t border-gray-300" />
+            </div>
+            <div className="relative flex justify-center text-sm">
+              <span className="px-2 bg-white text-gray-500">OR</span>
+            </div>
+          </div>
+
+          {/* Signup Form */}
           <form onSubmit={handleSubmit} className="space-y-4">
+            {errors.general && (
+              <div className="p-3 bg-red-50 border border-red-200 rounded-lg text-red-600 text-sm">
+                {errors.general}
+              </div>
+            )}
+
+            {/* Name Fields */}
+            <div className="grid grid-cols-2 gap-3">
+              <div>
+                <input
+                  type="text"
+                  name="firstName"
+                  placeholder="First name"
+                  value={formData.firstName}
+                  onChange={handleInputChange}
+                  className={`w-full px-3 py-3 border rounded-lg focus:outline-none focus:ring-2 focus:ring-[#4A154B] ${
+                    errors.firstName ? 'border-red-300' : 'border-gray-300'
+                  }`}
+                />
+                {errors.firstName && (
+                  <p className="text-red-600 text-xs mt-1">{errors.firstName}</p>
+                )}
+              </div>
+              <div>
+                <input
+                  type="text"
+                  name="lastName"
+                  placeholder="Last name"
+                  value={formData.lastName}
+                  onChange={handleInputChange}
+                  className={`w-full px-3 py-3 border rounded-lg focus:outline-none focus:ring-2 focus:ring-[#4A154B] ${
+                    errors.lastName ? 'border-red-300' : 'border-gray-300'
+                  }`}
+                />
+                {errors.lastName && (
+                  <p className="text-red-600 text-xs mt-1">{errors.lastName}</p>
+                )}
+              </div>
+            </div>
+
+            {/* Email Field */}
             <div>
               <input
                 type="email"
-                value={email}
-                onChange={(e) => setEmail(e.target.value)}
+                name="email"
                 placeholder="name@work-email.com"
-                className="w-full px-4 py-3 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-purple-500 focus:border-transparent text-lg"
-                disabled={isLoading}
+                value={formData.email}
+                onChange={handleInputChange}
+                className={`w-full px-3 py-3 border rounded-lg focus:outline-none focus:ring-2 focus:ring-[#4A154B] ${
+                  errors.email ? 'border-red-300' : 'border-gray-300'
+                }`}
               />
+              {errors.email && (
+                <p className="text-red-600 text-xs mt-1">{errors.email}</p>
+              )}
             </div>
 
+            {/* Password Fields */}
+            <div>
+              <input
+                type="password"
+                name="password"
+                placeholder="Password (8+ characters)"
+                value={formData.password}
+                onChange={handleInputChange}
+                className={`w-full px-3 py-3 border rounded-lg focus:outline-none focus:ring-2 focus:ring-[#4A154B] ${
+                  errors.password ? 'border-red-300' : 'border-gray-300'
+                }`}
+              />
+              {errors.password && (
+                <p className="text-red-600 text-xs mt-1">{errors.password}</p>
+              )}
+            </div>
+
+            <div>
+              <input
+                type="password"
+                name="confirmPassword"
+                placeholder="Confirm password"
+                value={formData.confirmPassword}
+                onChange={handleInputChange}
+                className={`w-full px-3 py-3 border rounded-lg focus:outline-none focus:ring-2 focus:ring-[#4A154B] ${
+                  errors.confirmPassword ? 'border-red-300' : 'border-gray-300'
+                }`}
+              />
+              {errors.confirmPassword && (
+                <p className="text-red-600 text-xs mt-1">{errors.confirmPassword}</p>
+              )}
+            </div>
+
+            {/* Submit Button */}
             <button
               type="submit"
-              disabled={isLoading || !email}
-              className={`w-full py-3 px-4 rounded-lg font-semibold text-white text-lg transition-all duration-200 ${
-                isLoading || !email
-                  ? 'bg-gray-400 cursor-not-allowed'
-                  : 'bg-purple-600 hover:bg-purple-700 active:bg-purple-800 transform hover:scale-105'
-              }`}
+              disabled={isLoading}
+              className="w-full bg-[#4A154B] text-white py-3 px-4 rounded-lg font-medium hover:bg-purple-900 focus:outline-none focus:ring-2 focus:ring-[#4A154B] disabled:opacity-50 disabled:cursor-not-allowed"
             >
               {isLoading ? (
-                <span className="flex items-center justify-center">
-                  <svg className="animate-spin -ml-1 mr-2 h-5 w-5 text-white" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
+                <div className="flex items-center justify-center">
+                  <svg className="animate-spin -ml-1 mr-3 h-5 w-5 text-white" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
                     <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"></circle>
                     <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
                   </svg>
-                  Creating your account...
-                </span>
+                  Creating account...
+                </div>
               ) : (
                 'Start Free Trial'
               )}
             </button>
           </form>
 
-          {/* Message */}
-          {message && (
-            <div className={`mt-4 p-3 rounded-lg text-sm text-center transform transition-all duration-300 ${
-              message.includes('Success') 
-                ? 'bg-green-50 text-green-700 border border-green-200 scale-100 opacity-100' 
-                : 'bg-red-50 text-red-700 border border-red-200 scale-100 opacity-100'
-            }`}>
-              {message}
-            </div>
-          )}
-
-          {/* Divider */}
-          <div className="flex items-center my-6">
-            <div className="flex-1 border-t border-gray-300"></div>
-            <div className="px-4 text-gray-500 text-sm">OTHER OPTIONS</div>
-            <div className="flex-1 border-t border-gray-300"></div>
-          </div>
-
-          {/* Social login buttons */}
-          <div className="space-y-3">
-            <button
-              onClick={handleGoogleSignup}
-              className="w-full flex items-center justify-center px-4 py-3 border border-gray-300 rounded-lg hover:bg-gray-50 transition-all duration-200 transform hover:scale-105"
-            >
-              <svg className="w-5 h-5 mr-3" viewBox="0 0 24 24">
-                <path fill="#4285F4" d="M22.56 12.25c0-.78-.07-1.53-.2-2.25H12v4.26h5.92c-.26 1.37-1.04 2.53-2.21 3.31v2.77h3.57c2.08-1.92 3.28-4.74 3.28-8.09z"/>
-                <path fill="#34A853" d="M12 23c2.97 0 5.46-.98 7.28-2.66l-3.57-2.77c-.98.66-2.23 1.06-3.71 1.06-2.86 0-5.29-1.93-6.16-4.53H2.18v2.84C3.99 20.53 7.7 23 12 23z"/>
-                <path fill="#FBBC05" d="M5.84 14.09c-.22-.66-.35-1.36-.35-2.09s.13-1.43.35-2.09V7.07H2.18C1.43 8.55 1 10.22 1 12s.43 3.45 1.18 4.93l2.85-2.22.81-.62z"/>
-                <path fill="#EA4335" d="M12 5.38c1.62 0 3.06.56 4.21 1.64l3.15-3.15C17.45 2.09 14.97 1 12 1 7.7 1 3.99 3.47 2.18 7.07l3.66 2.84c.87-2.6 3.3-4.53 6.16-4.53z"/>
-              </svg>
-              <span className="text-gray-700 font-medium">Continue with Google</span>
-            </button>
-
-            <button
-              onClick={handleAppleSignup}
-              className="w-full flex items-center justify-center px-4 py-3 border border-gray-300 rounded-lg hover:bg-gray-50 transition-all duration-200 transform hover:scale-105"
-            >
-              <svg className="w-5 h-5 mr-3" viewBox="0 0 24 24">
-                <path d="M18.71 19.5c-.83 1.24-1.71 2.45-3.05 2.47-1.34.03-1.77-.79-3.29-.79-1.53 0-2 .77-3.27.82-1.31.05-2.3-1.32-3.14-2.53C4.25 17 2.94 12.45 4.7 9.39c.87-1.52 2.43-2.48 4.12-2.51 1.28-.02 2.5.87 3.29.87.78 0 2.26-1.07 3.81-.91.65.03 2.47.26 3.64 1.98-.09.06-2.17 1.28-2.15 3.81.03 3.02 2.65 4.03 2.68 4.04-.03.07-.42 1.44-1.38 2.83M13 3.5c.73-.83 1.94-1.46 2.94-1.5.13 1.17-.34 2.35-1.04 3.19-.69.85-1.83 1.51-2.95 1.42-.15-1.15.41-2.35 1.05-3.11z"/>
-              </svg>
-              <span className="text-gray-700 font-medium">Continue with Apple</span>
-            </button>
-          </div>
-
-          {/* Legal text */}
-          <p className="text-xs text-gray-500 text-center mt-6 leading-relaxed">
-            By entering your email address and continuing, you will create a new Retloop account with a 14-day free trial. 
-            No credit card required. You can cancel anytime.<br/><br/>
-            By creating an account, you're agreeing to our main services agreement, user terms of service and 
-            Retloop supplemental terms. Additional disclosures are available in our privacy policy and cookie policy.
+          {/* Footer */}
+          <p className="text-xs text-gray-500 text-center mt-4">
+            By clicking "Start Free Trial", you agree to our{' '}
+            <a href="/terms" className="text-[#4A154B] hover:underline">Terms of Service</a>
+            {' '}and{' '}
+            <a href="/privacy" className="text-[#4A154B] hover:underline">Privacy Policy</a>.
           </p>
 
-          {/* Sign in link */}
-          <div className="text-center mt-6">
-            <p className="text-gray-600 text-sm">Already using Retloop?</p>
-            <button
-              onClick={() => {
-                console.log('Sign in to existing account');
-                // TODO: Handle sign in flow
-              }}
-              className="text-blue-600 hover:text-blue-700 font-medium text-sm mt-1 transition-colors"
-            >
-              Sign in to an existing account
-            </button>
+          <div className="text-center mt-4">
+            <p className="text-sm text-gray-600">
+              Already using Retloop?{' '}
+              <button
+                onClick={() => {
+                  onClose();
+                  window.location.href = '/auth/signin';
+                }}
+                className="text-[#4A154B] hover:underline font-medium"
+              >
+                Sign in
+              </button>
+            </p>
           </div>
         </div>
       </div>
     </div>
   );
-};
+}
 
-// Keep all other components the same
-const FeatureCard = ({ icon, title, description }: { icon: React.ReactNode, title: string, description: string }) => {
-  return (
-    <div className="bg-white p-6 rounded-lg shadow-md">
-      <div className="text-purple-600 mb-4">{icon}</div>
-      <h3 className="text-xl font-semibold mb-2">{title}</h3>
-      <p className="text-gray-600">{description}</p>
-    </div>
-  );
-};
-
-const TestimonialCard = ({ name, company, content, rating }: { name: string, company: string, content: string, rating: number }) => {
-  return (
-    <div className="bg-white p-6 rounded-lg shadow-md">
-      <div className="flex mb-4">
-        {[...Array(5)].map((_, i) => (
-          <svg
-            key={i}
-            className={`w-5 h-5 ${i < rating ? 'text-yellow-400' : 'text-gray-300'}`}
-            fill="currentColor"
-            viewBox="0 0 20 20"
-          >
-            <path d="M9.049 2.927c.3-.921 1.603-.921 1.902 0l1.07 3.292a1 1 0 00.95.69h3.462c.969 0 1.371 1.24.588 1.81l-2.8 2.034a1 1 0 00-.364 1.118l1.07 3.292c.3.921-.755 1.688-1.54 1.118l-2.8-2.034a1 1 0 00-1.175 0l-2.8 2.034c-.784.57-1.838-.197-1.539-1.118l1.07-3.292a1 1 0 00-.364-1.118L2.98 8.72c-.783-.57-.38-1.81.588-1.81h3.461a1 1 0 00.951-.69l1.07-3.292z" />
-          </svg>
-        ))}
-      </div>
-      <p className="text-gray-600 mb-4">"{content}"</p>
-      <div className="font-semibold">{name}</div>
-      <div className="text-sm text-gray-500">{company}</div>
-    </div>
-  );
-};
-
-const PricingCard = ({ 
-  plan, 
-  price, 
-  features, 
-  isPopular, 
-  onSelect 
-}: { 
-  plan: string, 
-  price: string, 
-  features: string[], 
-  isPopular?: boolean,
-  onSelect: () => void 
-}) => {
-  return (
-    <div className={`bg-white p-8 rounded-lg shadow-md relative ${isPopular ? 'ring-2 ring-purple-600' : ''}`}>
-      {isPopular && (
-        <div className="absolute top-0 left-1/2 transform -translate-x-1/2 -translate-y-1/2 bg-purple-600 text-white px-4 py-1 rounded-full text-sm font-medium">
-          Most Popular
-        </div>
-      )}
-      <h3 className="text-2xl font-bold mb-2">{plan}</h3>
-      <div className="text-4xl font-bold mb-6">{price}<span className="text-lg text-gray-500">/month</span></div>
-      <ul className="space-y-3 mb-8">
-        {features.map((feature, index) => (
-          <li key={index} className="flex items-center">
-            <svg className="w-5 h-5 text-green-500 mr-3" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 13l4 4L19 7" />
-            </svg>
-            {feature}
-          </li>
-        ))}
-      </ul>
-      <button
-        onClick={onSelect}
-        className={`w-full py-3 px-4 rounded-lg font-semibold transition-colors ${
-          isPopular
-            ? 'bg-purple-600 text-white hover:bg-purple-700'
-            : 'bg-gray-100 text-gray-900 hover:bg-gray-200'
-        }`}
-      >
-        Start Free Trial
-      </button>
-    </div>
-  );
-};
-
-// Minimal Contact Form expected by page.tsx
-const ContactForm = () => {
-  const [formData, setFormData] = useState({ name: '', email: '', company: '', message: '' });
+export function ContactForm() {
+  const [formData, setFormData] = useState({
+    name: '',
+    email: '',
+    company: '',
+    message: ''
+  });
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [submitted, setSubmitted] = useState(false);
-
-  const handleChange = (e: React.ChangeEvent<HTMLInputElement | HTMLTextAreaElement>) => {
-    setFormData({ ...formData, [e.target.name]: e.target.value });
-  };
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     setIsSubmitting(true);
-    try {
-      await new Promise((r) => setTimeout(r, 600));
+
+    // Simulate form submission
+    setTimeout(() => {
       setSubmitted(true);
-      setFormData({ name: '', email: '', company: '', message: '' });
-      setTimeout(() => setSubmitted(false), 2500);
-    } finally {
       setIsSubmitting(false);
-    }
+      setFormData({ name: '', email: '', company: '', message: '' });
+    }, 1000);
   };
 
+  const handleChange = (e: React.ChangeEvent<HTMLInputElement | HTMLTextAreaElement>) => {
+    setFormData(prev => ({
+      ...prev,
+      [e.target.name]: e.target.value
+    }));
+  };
+
+  if (submitted) {
+    return (
+      <div className="bg-green-50 border border-green-200 rounded-lg p-6">
+        <div className="flex items-center">
+          <svg className="w-6 h-6 text-green-600 mr-3" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 13l4 4L19 7" />
+          </svg>
+          <div>
+            <h3 className="text-green-800 font-medium">Message sent!</h3>
+            <p className="text-green-700 text-sm">We'll get back to you within 24 hours.</p>
+          </div>
+        </div>
+        <button 
+          onClick={() => setSubmitted(false)}
+          className="mt-4 text-green-600 hover:text-green-800 text-sm font-medium"
+        >
+          Send another message
+        </button>
+      </div>
+    );
+  }
+
   return (
-    <div className="bg-white rounded-xl shadow-lg p-8">
-      <h3 className="text-2xl font-bold text-[#4A154B] mb-6">Get in Touch</h3>
-      {submitted && (
-        <div className="bg-green-50 border border-green-200 rounded-lg p-3 mb-4 text-sm text-green-700">Thanks! We'll get back to you within 24 hours.</div>
-      )}
-      <form onSubmit={handleSubmit}>
-        <div className="grid grid-cols-1 md:grid-cols-2 gap-4 mb-4">
-          <div>
-            <label htmlFor="name" className="block text-sm font-medium text-gray-700 mb-2">Full Name</label>
-            <input id="name" name="name" value={formData.name} onChange={handleChange} className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-[#4A154B]" required />
-          </div>
-          <div>
-            <label htmlFor="email" className="block text-sm font-medium text-gray-700 mb-2">Email</label>
-            <input id="email" name="email" type="email" value={formData.email} onChange={handleChange} className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-[#4A154B]" required />
-          </div>
+    <form onSubmit={handleSubmit} className="space-y-4">
+      <div>
+        <label htmlFor="name" className="block text-sm font-medium text-gray-700 mb-1">
+          Full Name
+        </label>
+        <input
+          type="text"
+          id="name"
+          name="name"
+          required
+          value={formData.name}
+          onChange={handleChange}
+          className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-[#4A154B]"
+          placeholder="Your full name"
+        />
+      </div>
+
+      <div>
+        <label htmlFor="email" className="block text-sm font-medium text-gray-700 mb-1">
+          Email
+        </label>
+        <input
+          type="email"
+          id="email"
+          name="email"
+          required
+          value={formData.email}
+          onChange={handleChange}
+          className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-[#4A154B]"
+          placeholder="your.email@company.com"
+        />
+      </div>
+
+      <div>
+        <label htmlFor="company" className="block text-sm font-medium text-gray-700 mb-1">
+          Company
+        </label>
+        <input
+          type="text"
+          id="company"
+          name="company"
+          value={formData.company}
+          onChange={handleChange}
+          className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-[#4A154B]"
+          placeholder="Your company name"
+        />
+      </div>
+
+      <div>
+        <label htmlFor="message" className="block text-sm font-medium text-gray-700 mb-1">
+          Message
+        </label>
+        <textarea
+          id="message"
+          name="message"
+          rows={4}
+          required
+          value={formData.message}
+          onChange={handleChange}
+          className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-[#4A154B]"
+          placeholder="Tell us about your store and how we can help..."
+        />
+      </div>
+
+      <button
+        type="submit"
+        disabled={isSubmitting}
+        className="w-full bg-[#4A154B] text-white py-3 px-4 rounded-lg font-medium hover:bg-purple-900 focus:outline-none focus:ring-2 focus:ring-[#4A154B] disabled:opacity-50 disabled:cursor-not-allowed"
+      >
+        {isSubmitting ? 'Sending...' : 'Send Message'}
+      </button>
+    </form>
+  );
+}
+
+export function NewsletterSignup() {
+  const [email, setEmail] = useState('');
+  const [subscribed, setSubscribed] = useState(false);
+  const [isSubmitting, setIsSubmitting] = useState(false);
+
+  const handleSubmit = async (e: React.FormEvent) => {
+    e.preventDefault();
+    setIsSubmitting(true);
+
+    // Simulate newsletter signup
+    setTimeout(() => {
+      setSubscribed(true);
+      setIsSubmitting(false);
+      setEmail('');
+    }, 1000);
+  };
+
+  if (subscribed) {
+    return (
+      <div className="bg-green-50 border border-green-200 rounded-lg p-4">
+        <div className="flex items-center">
+          <svg className="w-5 h-5 text-green-600 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 13l4 4L19 7" />
+          </svg>
+          <span className="text-green-800 text-sm font-medium">Subscribed!</span>
         </div>
-        <div className="mb-4">
-          <label htmlFor="company" className="block text-sm font-medium text-gray-700 mb-2">Company/Store Name</label>
-          <input id="company" name="company" value={formData.company} onChange={handleChange} className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-[#4A154B]" />
-        </div>
-        <div className="mb-6">
-          <label htmlFor="message" className="block text-sm font-medium text-gray-700 mb-2">Message</label>
-          <textarea id="message" name="message" rows={4} value={formData.message} onChange={handleChange} className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-[#4A154B]" />
-        </div>
-        <button type="submit" disabled={isSubmitting} className="w-full bg-[#4A154B] text-white py-3 px-6 rounded-lg font-semibold hover:bg-purple-900 transition-colors disabled:opacity-50">
-          {isSubmitting ? 'Sending...' : 'Send Message'}
+        <button 
+          onClick={() => setSubscribed(false)}
+          className="mt-2 text-green-600 hover:text-green-800 text-xs"
+        >
+          Subscribe another email
+        </button>
+      </div>
+    );
+  }
+
+  return (
+    <div className="bg-white rounded-lg p-6">
+      <h4 className="font-semibold text-gray-900 mb-2">Stay updated</h4>
+      <p className="text-sm text-gray-600 mb-4">Get cart recovery tips and product updates</p>
+      <form onSubmit={handleSubmit} className="space-y-3">
+        <input
+          type="email"
+          required
+          value={email}
+          onChange={(e) => setEmail(e.target.value)}
+          placeholder="Enter your email"
+          className="w-full px-3 py-2 border border-gray-300 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-[#4A154B]"
+        />
+        <button
+          type="submit"
+          disabled={isSubmitting}
+          className="w-full bg-[#4A154B] text-white py-2 px-4 rounded-lg text-sm font-medium hover:bg-purple-900 disabled:opacity-50"
+        >
+          {isSubmitting ? 'Subscribing...' : 'Subscribe'}
         </button>
       </form>
     </div>
   );
-};
+}
 
-// Simple Analytics tracker hook component
-const AnalyticsTracker = () => {
-  useEffect(() => {
+export function AnalyticsTracker() {
+  React.useEffect(() => {
+    // Google Analytics tracking code
     if (typeof window !== 'undefined') {
-      // Placeholder analytics - actual GA is wired in page handlers
-      // console.log('Page viewed:', window.location.pathname);
+      // Load Google Analytics
+      const script = document.createElement('script');
+      script.async = true;
+      script.src = 'https://www.googletagmanager.com/gtag/js?id=G-RN0WD74NFZ';
+      document.head.appendChild(script);
+
+      // Initialize Google Analytics
+      (window as any).dataLayer = (window as any).dataLayer || [];
+      function gtag(...args: any[]) {
+        (window as any).dataLayer.push(args);
+      }
+      (window as any).gtag = gtag;
+      
+      gtag('js', new Date());
+      gtag('config', 'G-RN0WD74NFZ');
     }
   }, []);
-  return null;
-};
 
-// Newsletter signup inline component
-const NewsletterSignup = () => {
-  const [email, setEmail] = useState('');
-  const [done, setDone] = useState(false);
-
-  const onSubmit = async (e: React.FormEvent) => {
-    e.preventDefault();
-    await new Promise((r) => setTimeout(r, 400));
-    setDone(true);
-    setEmail('');
-    setTimeout(() => setDone(false), 2000);
-  };
-
-  return (
-    <div className="bg-gray-50 rounded-lg p-6">
-      <h4 className="font-semibold text-gray-900 mb-2">Stay updated</h4>
-      <p className="text-sm text-gray-600 mb-4">Get cart recovery tips and Retloop updates</p>
-      {done ? (
-        <p className="text-green-600 text-sm">Thanks for subscribing!</p>
-      ) : (
-        <form onSubmit={onSubmit} className="flex gap-2">
-          <input type="email" value={email} onChange={(e) => setEmail(e.target.value)} placeholder="Enter email" className="flex-1 px-3 py-2 border border-gray-300 rounded text-sm focus:outline-none focus:ring-2 focus:ring-[#4A154B]" required />
-          <button type="submit" className="bg-[#4A154B] text-white px-4 py-2 rounded text-sm hover:bg-purple-900 transition-colors">Subscribe</button>
-        </form>
-      )}
-    </div>
-  );
-};
-
-export { SignupModal, FeatureCard, TestimonialCard, PricingCard, ContactForm, AnalyticsTracker, NewsletterSignup };
+  return null; // This component doesn't render anything visible
+}

@@ -6,59 +6,33 @@ export async function POST(request: NextRequest) {
   try {
     const { name, email, password } = await request.json()
     
-    // Validation
     if (!name || !email || !password) {
-      return NextResponse.json(
-        { error: 'All fields are required' }, 
-        { status: 400 }
-      )
+      return NextResponse.json({ error: 'All fields required' }, { status: 400 })
     }
 
-    if (password.length < 6) {
-      return NextResponse.json(
-        { error: 'Password must be at least 6 characters' }, 
-        { status: 400 }
-      )
-    }
-
-    // Hash password
     const passwordHash = await bcrypt.hash(password, 12)
 
-    // Create user in database
     const { data, error } = await supabase
-      .from('users')
-      .insert([
-        {
-          name,
-          email,
-          password_hash: passwordHash,
-          plan: 'trial'
-        }
-      ])
+      .from('retloop_users')
+      .insert({
+        name,
+        email,
+        password_hash: passwordHash,
+        plan: 'trial',
+        trial_start_date: new Date().toISOString(),
+        trial_end_date: new Date(Date.now() + 14 * 24 * 60 * 60 * 1000).toISOString()
+      })
       .select()
 
     if (error) {
-      if (error.code === '23505') {
-        return NextResponse.json(
-          { error: 'An account with this email already exists' }, 
-          { status: 400 }
-        )
-      }
-      return NextResponse.json(
-        { error: 'Failed to create account' }, 
-        { status: 500 }
-      )
+      console.log('Insert error:', error)
+      return NextResponse.json({ error: error.message }, { status: 400 })
     }
 
-    return NextResponse.json({ 
-      success: true, 
-      message: 'Account created successfully' 
-    })
-
+    console.log('User created:', data[0])
+    return NextResponse.json({ success: true, user: data[0] })
   } catch (error) {
-    return NextResponse.json(
-      { error: 'Failed to create account' }, 
-      { status: 500 }
-    )
+    console.log('Server error:', error)
+    return NextResponse.json({ error: 'Server error' }, { status: 500 })
   }
 }

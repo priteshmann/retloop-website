@@ -160,6 +160,8 @@ export default function Home() {
               </svg>
               <span className="font-bold text-lg ml-2">Retloop</span>
             </a>
+
+            {/* Primary nav links (kept hidden on small screens like before) */}
             <nav className="hidden lg:flex space-x-4 text-sm">
               <a href="#features" className="text-gray-700 hover:text-gray-900">Why Retloop?</a>
               <a href="#product" className="text-gray-700 hover:text-gray-900">Product</a>
@@ -168,21 +170,21 @@ export default function Home() {
               <a href="#pricing" className="text-gray-700 hover:text-gray-900">Pricing</a>
             </nav>
           </div>
-          <div className="flex items-center space-x-2">
-            <div className="hidden sm:flex items-center space-x-2">
-              <button 
-                onClick={handleSignInClick}
-                className="px-3 py-1 text-sm text-[#4A154B] rounded-full border border-[#4A154B] hover:bg-[#4A154B] hover:text-white transition-colors"
-              >
-                Sign in
-              </button>
-              <button 
-                onClick={() => handleTrialClick('header')}
-                className="px-4 py-2 text-sm text-white bg-[#4A154B] rounded-full hover:bg-purple-900 transition-colors"
-              >
-                START FREE TRIAL
-              </button>
-            </div>
+
+          {/* Updated navigation per your snippet */}
+          <div className="flex items-center space-x-4">
+            <Link 
+              href="/auth/signin" 
+              className="text-gray-600 hover:text-gray-900 font-medium"
+            >
+              Sign In
+            </Link>
+            <button 
+              onClick={() => setIsSignupModalOpen(true)}
+              className="bg-purple-600 text-white px-6 py-2 rounded-lg font-semibold hover:bg-purple-700"
+            >
+              START FREE TRIAL
+            </button>
           </div>
         </div>
       </header>
